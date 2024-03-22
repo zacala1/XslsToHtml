@@ -1,6 +1,7 @@
 ﻿using ClosedXML.Excel;
 using System.Text;
 using System.Text.RegularExpressions;
+using static ClosedXML.Excel.XLPredefinedFormat;
 
 namespace XlsxToHtml
 {
@@ -57,7 +58,8 @@ td {
         public static string Convert(string xlsxFilePath)
         {
             StringBuilder htmlBuilder = new StringBuilder();
-            using (var workbook = new XLWorkbook(xlsxFilePath))
+            var stream = new FileStream(xlsxFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using (var workbook = new XLWorkbook(stream))
             {
                 IXLTheme theme = new XLThemeOffice();
                 var worksheet = workbook.Worksheet(1); // 첫 번째 워크시트를 선택
@@ -94,7 +96,7 @@ td {
 
                         try
                         {
-                            string value = cell.Value.ToString();
+                            var value = cell.GetFormattedString();
                             htmlBuilder.Append(EncodeCellValue(value));
                         }
                         catch
@@ -125,23 +127,27 @@ td {
         /// <returns>The HTML representation of the cell style.</returns>
         private static string EncodeCellStyle(IXLCell currentCell, IXLTheme theme)
         {
+            if (currentCell is null) throw new ArgumentNullException(nameof(currentCell));
+            if (theme is null) throw new ArgumentNullException(nameof(theme));
+
+            var addr = $"{currentCell.Address.ColumnLetter}{currentCell.Address.RowNumber}";
             StringBuilder styleBuilder = new StringBuilder();
-            styleBuilder.Append(PropertyToStyle("border-top", currentCell.Style.Border.TopBorder, currentCell.Style.Border.TopBorderColor, theme));
-            styleBuilder.Append(PropertyToStyle("border-bottom", currentCell.Style.Border.BottomBorder, currentCell.Style.Border.BottomBorderColor, theme));
-            styleBuilder.Append(PropertyToStyle("border-left", currentCell.Style.Border.LeftBorder, currentCell.Style.Border.LeftBorderColor, theme));
-            styleBuilder.Append(PropertyToStyle("border-right", currentCell.Style.Border.RightBorder, currentCell.Style.Border.RightBorderColor, theme));
-            styleBuilder.Append(PropertyToStyle("background-color", currentCell.Style.Fill.BackgroundColor, theme));
-            styleBuilder.Append(PropertyToStyle("color", currentCell.Style.Font.FontColor, theme));
-            styleBuilder.Append(PropertyToStyle("text-align", currentCell.Style.Alignment.Horizontal));
-            styleBuilder.Append(PropertyToStyle("vertical-align", currentCell.Style.Alignment.Vertical));
-            styleBuilder.Append(PropertyToStyle("font-size", (int)currentCell.Style.Font.FontSize, 11));
-            styleBuilder.Append(PropertyToStyle("font-family", currentCell.Style.Font.FontName, "serif"));
-            styleBuilder.Append(PropertyToStyle("font-style", currentCell.Style.Font.Italic ? "italic" : "normal", "normal"));
-            styleBuilder.Append(PropertyToStyle("font-weight", currentCell.Style.Font.Bold ? "bold" : "normal", "normal"));
-            styleBuilder.Append(PropertyToStyle("white-space", currentCell.Style.Alignment.WrapText ? "no-wrap" : "", string.Empty));
-            styleBuilder.Append(PropertyToStyle("height", GetRowHeight(currentCell), 0));
-            styleBuilder.Append(PropertyToStyle("width", GetColumnWidth(currentCell), 0));
-            styleBuilder.Append(PropertyToStyle("transform", currentCell.Style.Alignment.TextRotation, 0));
+            styleBuilder.Append(BorderPropertyToStyle("border-top", currentCell.Style.Border.TopBorder, currentCell.Style.Border.TopBorderColor, theme));
+            styleBuilder.Append(BorderPropertyToStyle("border-bottom", currentCell.Style.Border.BottomBorder, currentCell.Style.Border.BottomBorderColor, theme));
+            styleBuilder.Append(BorderPropertyToStyle("border-left", currentCell.Style.Border.LeftBorder, currentCell.Style.Border.LeftBorderColor, theme));
+            styleBuilder.Append(BorderPropertyToStyle("border-right", currentCell.Style.Border.RightBorder, currentCell.Style.Border.RightBorderColor, theme));
+            styleBuilder.Append(ColorPropertyToStyle("background-color", currentCell.Style.Fill.BackgroundColor, theme));
+            styleBuilder.Append(ColorPropertyToStyle("color", currentCell.Style.Font.FontColor, theme));
+            styleBuilder.Append(AlignPropertyToStyle("text-align", currentCell.Style.Alignment.Horizontal, currentCell.Value.Type));
+            styleBuilder.Append(AlignPropertyToStyle("vertical-align", currentCell.Style.Alignment.Vertical));
+            styleBuilder.Append(SizePropertyToStyle("font-size", (int)currentCell.Style.Font.FontSize, 11));
+            styleBuilder.Append(FontPropertyToStyle("font-family", currentCell.Style.Font.FontName, "serif"));
+            styleBuilder.Append(PropertyToStyle("font-style", currentCell.Style.Font.Italic ? "italic" : "normal"));
+            styleBuilder.Append(PropertyToStyle("font-weight", currentCell.Style.Font.Bold ? "bold" : "normal"));
+            styleBuilder.Append(PropertyToStyle("white-space", currentCell.Style.Alignment.WrapText ? "" : "no-wrap"));
+            styleBuilder.Append(SizePropertyToStyle("height", GetRowHeight(currentCell)));
+            styleBuilder.Append(SizePropertyToStyle("width", GetColumnWidth(currentCell)));
+            styleBuilder.Append(TransformPropertyToStyle("transform", currentCell.Style.Alignment.TextRotation));
             return $"<td style=\"{styleBuilder.ToString().TrimEnd()}\" eth-cell=\"{currentCell.Address}\">";
         }
 
@@ -154,24 +160,29 @@ td {
         /// <returns>The HTML representation of the cell style.</returns>
         private static string EncodeCellStyle(IXLCell currentCell, IXLRange range, IXLTheme theme)
         {
+            if (currentCell is null) throw new ArgumentNullException(nameof(currentCell));
+            if (range is null) throw new ArgumentNullException(nameof(range));
+            if (theme is null) throw new ArgumentNullException(nameof(theme));
+
+            var addr = $"{currentCell.Address.ColumnLetter}{currentCell.Address.RowNumber}";
             StringBuilder styleBuilder = new StringBuilder();
             var lastCell = range.LastCell();
-            styleBuilder.Append(PropertyToStyle("border-top", currentCell.Style.Border.TopBorder, currentCell.Style.Border.TopBorderColor, theme));
-            styleBuilder.Append(PropertyToStyle("border-bottom", currentCell.Style.Border.BottomBorder, currentCell.Style.Border.BottomBorderColor, theme));
-            styleBuilder.Append(PropertyToStyle("border-left", currentCell.Style.Border.LeftBorder, currentCell.Style.Border.LeftBorderColor, theme));
-            styleBuilder.Append(PropertyToStyle("border-right", lastCell.Style.Border.RightBorder, lastCell.Style.Border.RightBorderColor, theme));
-            styleBuilder.Append(PropertyToStyle("background-color", currentCell.Style.Fill.BackgroundColor, theme));
-            styleBuilder.Append(PropertyToStyle("color", currentCell.Style.Font.FontColor, theme));
-            styleBuilder.Append(PropertyToStyle("text-align", currentCell.Style.Alignment.Horizontal));
-            styleBuilder.Append(PropertyToStyle("vertical-align", currentCell.Style.Alignment.Vertical));
-            styleBuilder.Append(PropertyToStyle("font-size", (int)currentCell.Style.Font.FontSize, 11));
-            styleBuilder.Append(PropertyToStyle("font-family", currentCell.Style.Font.FontName, "serif"));
-            styleBuilder.Append(PropertyToStyle("font-style", currentCell.Style.Font.Italic ? "italic" : "normal", "normal"));
-            styleBuilder.Append(PropertyToStyle("font-weight", currentCell.Style.Font.Bold ? "bold" : "normal", "normal"));
-            styleBuilder.Append(PropertyToStyle("white-space", currentCell.Style.Alignment.WrapText ? "no-wrap" : "", string.Empty));
-            styleBuilder.Append(PropertyToStyle("height", GetRowHeight(range), 0));
-            styleBuilder.Append(PropertyToStyle("width", GetColumnWidth(range), 0));
-            styleBuilder.Append(PropertyToStyle("transform", currentCell.Style.Alignment.TextRotation, 0));
+            styleBuilder.Append(BorderPropertyToStyle("border-top", currentCell.Style.Border.TopBorder, currentCell.Style.Border.TopBorderColor, theme));
+            styleBuilder.Append(BorderPropertyToStyle("border-bottom", currentCell.Style.Border.BottomBorder, currentCell.Style.Border.BottomBorderColor, theme));
+            styleBuilder.Append(BorderPropertyToStyle("border-left", currentCell.Style.Border.LeftBorder, currentCell.Style.Border.LeftBorderColor, theme));
+            styleBuilder.Append(BorderPropertyToStyle("border-right", lastCell.Style.Border.RightBorder, lastCell.Style.Border.RightBorderColor, theme));
+            styleBuilder.Append(ColorPropertyToStyle("background-color", currentCell.Style.Fill.BackgroundColor, theme));
+            styleBuilder.Append(ColorPropertyToStyle("color", currentCell.Style.Font.FontColor, theme));
+            styleBuilder.Append(AlignPropertyToStyle("text-align", currentCell.Style.Alignment.Horizontal, currentCell.Value.Type));
+            styleBuilder.Append(AlignPropertyToStyle("vertical-align", currentCell.Style.Alignment.Vertical));
+            styleBuilder.Append(SizePropertyToStyle("font-size", (int)currentCell.Style.Font.FontSize, 11));
+            styleBuilder.Append(FontPropertyToStyle("font-family", currentCell.Style.Font.FontName, "serif"));
+            styleBuilder.Append(PropertyToStyle("font-style", currentCell.Style.Font.Italic ? "italic" : "normal"));
+            styleBuilder.Append(PropertyToStyle("font-weight", currentCell.Style.Font.Bold ? "bold" : "normal"));
+            styleBuilder.Append(PropertyToStyle("white-space", currentCell.Style.Alignment.WrapText ? "" : "no-wrap"));
+            styleBuilder.Append(SizePropertyToStyle("height", GetRowHeight(range)));
+            styleBuilder.Append(SizePropertyToStyle("width", GetColumnWidth(range)));
+            styleBuilder.Append(TransformPropertyToStyle("transform", currentCell.Style.Alignment.TextRotation));
             return $"<td style=\"{styleBuilder.ToString().TrimEnd()}\" eth-cell=\"{currentCell.Address}\" colspan=\"{range.ColumnCount()}\" rowspan=\"{range.RowCount()}\">";
         }
 
@@ -183,7 +194,7 @@ td {
         /// <param name="cellColor">The color of the cell.</param>
         /// <param name="theme">The theme to use for resolving cell styles.</param>
         /// <returns>The HTML representation of the CSS property with the appropriate color.</returns>
-        private static string PropertyToStyle(string cssproperty, XLBorderStyleValues borderStyle, XLColor cellColor, IXLTheme theme)
+        private static string BorderPropertyToStyle(string cssproperty, XLBorderStyleValues borderStyle, XLColor cellColor, IXLTheme theme)
         {
             string width = string.Empty;
             string style = string.Empty;
@@ -255,20 +266,25 @@ td {
                     break;
 
                 case XLBorderStyleValues.None:
-                default:
                     width = "0pt";
                     style = "solid";
-                    return string.Empty;
-            }
+                    break;
 
+                default:
+                    width = string.Empty;
+                    style = string.Empty;
+                    break;
+            }
+            
             string color = cellColor.ColorType switch
             {
                 XLColorType.Color => ToHex(cellColor.Color),
-                XLColorType.Indexed => ToHex(cellColor.Color),
+                XLColorType.Indexed when cellColor.Indexed != 64 => ToHex(cellColor.Color),
                 XLColorType.Theme => ToHex(cellColor.ThemeColor, theme, cellColor.ThemeTint),
-                _ => "#000000",
+                _ => string.Empty,
             };
-            return PropertyToStyle(cssproperty, $"{style} {width} {color}");
+
+            return PropertyToStyle(cssproperty, ConcatWithSpaces(style, width, color));
         }
 
         /// <summary>
@@ -278,7 +294,7 @@ td {
         /// <param name="cellColor">The color of the cell.</param>
         /// <param name="theme">The theme to use for resolving cell styles.</param>
         /// <returns>The HTML representation of the CSS property with the appropriate color.</returns>
-        private static string PropertyToStyle(string cssproperty, XLColor cellColor, IXLTheme theme)
+        private static string ColorPropertyToStyle(string cssproperty, XLColor cellColor, IXLTheme theme)
         {
             switch (cellColor.ColorType)
             {
@@ -302,10 +318,32 @@ td {
         /// <param name="cssproperty">The CSS property to set.</param>
         /// <param name="value">The horizontal alignment value.</param>
         /// <returns>The HTML representation of the CSS property with the appropriate alignment.</returns>
-        private static string PropertyToStyle(string cssproperty, XLAlignmentHorizontalValues value)
+        private static string AlignPropertyToStyle(string cssproperty, XLAlignmentHorizontalValues value, XLDataType dataType)
         {
-            var temp = value.ToString() ?? "general";
-            return PropertyToStyle(cssproperty, temp);
+            string align = string.Empty;
+            if (value == XLAlignmentHorizontalValues.General)
+            {
+                switch (dataType)
+                {
+                    case XLDataType.Number:
+                    case XLDataType.DateTime:
+                    case XLDataType.TimeSpan:
+                        align = "right";
+                        break;
+                    case XLDataType.Error:
+                        align = "center";
+                        break;
+                    default:
+                        align = value.ToString().ToLower();
+                        break;
+                }
+            }
+            else
+            {
+                align = value.ToString().ToLower();
+            }
+
+            return PropertyToStyle(cssproperty, align);
         }
 
         /// <summary>
@@ -314,7 +352,7 @@ td {
         /// <param name="cssproperty">The CSS property to set.</param>
         /// <param name="value">The vertical alignment value.</param>
         /// <returns>The HTML representation of the CSS property with the appropriate alignment.</returns>
-        private static string PropertyToStyle(string cssproperty, XLAlignmentVerticalValues value)
+        private static string AlignPropertyToStyle(string cssproperty, XLAlignmentVerticalValues value)
         {
             var temp = value switch
             {
@@ -327,13 +365,67 @@ td {
         }
 
         /// <summary>
+        /// Converts an transfer value to CSS format, considering a default value.
+        /// </summary>
+        /// <param name="cssproperty">The CSS property name to set.</param>
+        /// <param name="value">The CSS property value</param>
+        /// <returns>The HTML representation of the CSS property with the appropriate value.</returns>
+        private static string TransformPropertyToStyle(string cssproperty, int value)
+        {
+            if (value == 0) return string.Empty;
+
+            return PropertyToStyle(cssproperty, $"rotate(-{value}deg)");
+        }
+
+        /// <summary>
+        /// Converts an size value to CSS format, considering a default value.
+        /// </summary>
+        /// <param name="cssproperty">The CSS property name to set.</param>
+        /// <param name="value">The CSS property value</param>
+        /// <param name="defaultValue"> The CSS property default value</param>
+        /// <returns>The HTML representation of the CSS property with the appropriate value.</returns>
+        private static string SizePropertyToStyle(string cssproperty, int value, int defaultValue = 0)
+        {
+            if (value == defaultValue) return string.Empty;
+
+            return PropertyToStyle(cssproperty, $"{value:F2}pt");
+        }
+
+        /// <summary>
+        /// Converts an size value to CSS format, considering a default value.
+        /// </summary>
+        /// <param name="cssproperty">The CSS property name to set.</param>
+        /// <param name="value">The CSS property value</param>
+        /// <param name="defaultValue"> The CSS property default value</param>
+        /// <returns>The HTML representation of the CSS property with the appropriate value.</returns>
+        private static string SizePropertyToStyle(string cssproperty, double value, double defaultValue = 0.0)
+        {
+            if (Math.Abs(value - defaultValue) < 0.001) return string.Empty;
+
+            return PropertyToStyle(cssproperty, $"{value}pt");
+        }
+
+        /// <summary>
+        /// Converts an integer value to CSS format, considering a default value.
+        /// </summary>
+        /// <param name="cssproperty">The CSS property name to set.</param>
+        /// <param name="value">The CSS property value</param>
+        /// <returns>The HTML representation of the CSS property with the appropriate value.</returns>
+        private static string FontPropertyToStyle(string cssproperty, string value, string defaultValue = "")
+        {
+            if (value == defaultValue) return string.Empty;
+
+            return PropertyToStyle(cssproperty, value + ", monospace");
+        }
+
+        /// <summary>
         /// Converts an integer value to CSS format, considering a default value.
         /// </summary>
         /// <param name="cssproperty">The CSS property name to set.</param>
         /// <param name="value">The CSS property value</param>
         /// <param name="defaultValue">The CSS property default value</param>
         /// <returns>The HTML representation of the CSS property with the appropriate value.</returns>
-        private static string PropertyToStyle(string cssproperty, int value, int defaultValue)
+        private static string PropertyToStyle(string cssproperty, int value, int defaultValue = 0)
         {
             if (value == defaultValue)
             {
@@ -350,12 +442,9 @@ td {
         /// <param name="value">The CSS property value</param>
         /// <param name="defaultValue">The CSS property default value</param>
         /// <returns>The HTML representation of the CSS property with the appropriate value.</returns>
-        private static string PropertyToStyle(string cssproperty, double value, double defaultValue)
+        private static string PropertyToStyle(string cssproperty, double value, double defaultValue = 0.0)
         {
-            if (Math.Abs(value - defaultValue) < 0.001)
-            {
-                return string.Empty;
-            }
+            if (Math.Abs(value - defaultValue) < 0.001) return string.Empty;
 
             return PropertyToStyle(cssproperty, value.ToString("F2"));
         }
@@ -369,10 +458,7 @@ td {
         /// <returns>The HTML representation of the CSS property with the appropriate value.</returns>
         private static string PropertyToStyle(string cssproperty, string value, string defaultValue)
         {
-            if (value == defaultValue)
-            {
-                return string.Empty;
-            }
+            if (value == defaultValue) return string.Empty;
 
             return PropertyToStyle(cssproperty, value);
         }
@@ -385,21 +471,11 @@ td {
         /// <returns>The HTML representation of the CSS property with the appropriate value.</returns>
         private static string PropertyToStyle(string cssproperty, string value)
         {
-            if (cssproperty.Contains("size") ||
-                cssproperty.Contains("width") ||
-                cssproperty.Contains("height"))
-            {
-                var temp = value.Replace(",", ".");
-                return $"{cssproperty}:{temp}pt; ";
-            }
-            if (cssproperty.Contains("transform"))
-            {
-                return $"{cssproperty}:rotate(-{value}deg); ";
-            }
+            if (string.IsNullOrEmpty(cssproperty)) return string.Empty;
 
             return $"{cssproperty}:{value}; ";
         }
-
+        
         /// <summary>
         /// Converts an RGB color to HTML hex format.
         /// </summary>
@@ -639,6 +715,45 @@ td {
                     return sb.ToString();
                 }, RegexOptions.Multiline);
             return input;
+        }
+
+        /// <summary>
+        /// Concatenates an array of strings with spaces in between each non-empty string, and adds a space if a string is empty.
+        /// </summary>
+        /// <param name="strings">An array of strings to concatenate.</param>
+        /// <returns>The concatenated string with spaces.</returns>
+        private static string ConcatWithSpaces(params string[] strings)
+        {
+            // Initialize the final result string.
+            string result = "";
+
+            // Iterate through each string in the array.
+            foreach (string str in strings)
+            {
+                // Check if the current string is not empty.
+                if (!string.IsNullOrEmpty(str))
+                {
+                    // Append the current string to the result.
+                    result += str;
+
+                    // Add a space if the current string is not the last element in the array.
+                    if (str != strings[strings.Length - 1])
+                    {
+                        result += " ";
+                    }
+                }
+                // If the current string is empty.
+                else
+                {
+                    // Add a space.
+                    result += " ";
+
+                    // Exit the loop.
+                    break;
+                }
+            }
+
+            return result;
         }
     }
 }
