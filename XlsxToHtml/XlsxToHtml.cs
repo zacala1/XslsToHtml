@@ -1,7 +1,6 @@
 ﻿using ClosedXML.Excel;
 using System.Text;
 using System.Text.RegularExpressions;
-using static ClosedXML.Excel.XLPredefinedFormat;
 
 namespace XlsxToHtml
 {
@@ -23,6 +22,10 @@ xmlns=""http://www.w3.org/TR/REC-html40"">";
         public const string DefaultHeadString = @"<head>
 <meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8""/>
 <style>
+:root {
+    --diagonal-color: #000000;
+    --diagonal-thickness: 1px;
+}
 body {
     margin: 0;
     padding: 0;
@@ -39,16 +42,83 @@ td {
     text-align: left;
     vertical-align: bottom;
     padding: 0px;
-    cellColor: black;
-    background-cellColor: transparent;
+    color: black;
+    background-color: transparent;
     border-width: 1px;
     border-style: solid;
-    border-cellColor: lightgray;
+    border-color: lightgray;
     border-collapse: collapse;
     white-space: nowrap;
 }
+td.diagonal-up {
+    position: relative;
+}
+td.diagonal-up:before,
+td.diagonal-up:after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+}
+td.diagonal-up:after {
+    background: linear-gradient(to left top,
+        transparent calc(50% - var(--diagonal-thickness)/2),
+        var(--diagonal-color) calc(50% - var(--diagonal-thickness)/2) calc(50% + var(--diagonal-thickness)/2),
+        transparent calc(50% + var(--diagonal-thickness)/2)
+    );
+}
+td.diagonal-down {
+    position: relative;
+}
+td.diagonal-down:before,
+td.diagonal-down:after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+}
+td.diagonal-down:after {
+    background: linear-gradient(to top right,
+        transparent calc(50% - var(--diagonal-thickness)/2),
+        var(--diagonal-color, black) calc(50% - var(--diagonal-thickness)/2) calc(50% + var(--diagonal-thickness)/2),
+        transparent calc(50% + var(--diagonal-thickness)/2)
+    );
+}
+td.diagonal-cross {
+    position: relative;
+}
+td.diagonal-cross:before,
+td.diagonal-cross:after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+}
+td.diagonal-cross:after {
+    background: linear-gradient(to left top,
+        transparent calc(50% - var(--diagonal-thickness)/2),
+        var(--diagonal-color) calc(50% - var(--diagonal-thickness)/2) calc(50% + var(--diagonal-thickness)/2),
+        transparent calc(50% + var(--diagonal-thickness)/2)
+    ),
+    linear-gradient(to top right,
+        transparent calc(50% - var(--diagonal-thickness)/2),
+        var(--diagonal-color, black) calc(50% - var(--diagonal-thickness)/2) calc(50% + var(--diagonal-thickness)/2),
+        transparent calc(50% + var(--diagonal-thickness)/2)
+    );
+}
 </style>
 </head>";
+
+        private const int indexTransparent = 64;
 
         /// <summary>
         /// Converts the specified Excel file to HTML format.
@@ -58,8 +128,7 @@ td {
         public static string Convert(string xlsxFilePath)
         {
             StringBuilder htmlBuilder = new StringBuilder();
-            var stream = new FileStream(xlsxFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using (var workbook = new XLWorkbook(stream))
+            using (var workbook = new XLWorkbook(xlsxFilePath))
             {
                 IXLTheme theme = new XLThemeOffice();
                 var worksheet = workbook.Worksheet(1); // 첫 번째 워크시트를 선택
@@ -221,13 +290,13 @@ td {
                     break;
 
                 case XLBorderStyleValues.Double:
-                    width = "1pt"; //width = "1px";
+                    width = "medium"; //width = "1px";
                     style = "double";
                     break;
 
                 case XLBorderStyleValues.Hair:
                     width = "1pt"; //width = "1px";
-                    style = "solid";
+                    style = "dotted";
                     break;
 
                 case XLBorderStyleValues.Medium:
@@ -266,20 +335,20 @@ td {
                     break;
 
                 case XLBorderStyleValues.None:
-                    width = "0pt";
-                    style = "solid";
-                    break;
+                    //width = "0pt";
+                    //style = "solid";
+                    return string.Empty;
 
                 default:
-                    width = string.Empty;
-                    style = string.Empty;
-                    break;
+                    //width = string.Empty;
+                    //style = string.Empty;
+                    return string.Empty;
             }
-            
+
             string color = cellColor.ColorType switch
             {
                 XLColorType.Color => ToHex(cellColor.Color),
-                XLColorType.Indexed when cellColor.Indexed != 64 => ToHex(cellColor.Color),
+                XLColorType.Indexed when cellColor.Indexed != indexTransparent => ToHex(cellColor.Color),
                 XLColorType.Theme => ToHex(cellColor.ThemeColor, theme, cellColor.ThemeTint),
                 _ => string.Empty,
             };
@@ -301,14 +370,14 @@ td {
                 case XLColorType.Color:
                     return PropertyToStyle(cssproperty, ToHex(cellColor.Color));
 
-                case XLColorType.Indexed:
+                case XLColorType.Indexed when cellColor.Indexed != indexTransparent:
                     return PropertyToStyle(cssproperty, ToHex(cellColor.Color));
 
                 case XLColorType.Theme:
                     return PropertyToStyle(cssproperty, ToHex(cellColor.ThemeColor, theme, cellColor.ThemeTint));
 
                 default:
-                    return PropertyToStyle(cssproperty, "#000000");
+                    return string.Empty;
             }
         }
 
@@ -330,9 +399,11 @@ td {
                     case XLDataType.TimeSpan:
                         align = "right";
                         break;
+
                     case XLDataType.Error:
                         align = "center";
                         break;
+
                     default:
                         align = value.ToString().ToLower();
                         break;
@@ -475,7 +546,7 @@ td {
 
             return $"{cssproperty}:{value}; ";
         }
-        
+
         /// <summary>
         /// Converts an RGB color to HTML hex format.
         /// </summary>
@@ -724,36 +795,19 @@ td {
         /// <returns>The concatenated string with spaces.</returns>
         private static string ConcatWithSpaces(params string[] strings)
         {
-            // Initialize the final result string.
-            string result = "";
+            var result = new StringBuilder();
 
-            // Iterate through each string in the array.
             foreach (string str in strings)
             {
-                // Check if the current string is not empty.
-                if (!string.IsNullOrEmpty(str))
+                if (string.IsNullOrEmpty(str)) continue;
+                if (result.Length != 0)
                 {
-                    // Append the current string to the result.
-                    result += str;
-
-                    // Add a space if the current string is not the last element in the array.
-                    if (str != strings[strings.Length - 1])
-                    {
-                        result += " ";
-                    }
+                    result.Append(" ");
                 }
-                // If the current string is empty.
-                else
-                {
-                    // Add a space.
-                    result += " ";
-
-                    // Exit the loop.
-                    break;
-                }
+                result.Append(str);
             }
 
-            return result;
+            return result.ToString();
         }
     }
 }
