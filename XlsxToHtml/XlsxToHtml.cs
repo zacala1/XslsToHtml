@@ -252,7 +252,10 @@ td.diagonal-cross:after {
             styleBuilder.Append(SizePropertyToStyle("height", GetRowHeight(range)));
             styleBuilder.Append(SizePropertyToStyle("width", GetColumnWidth(range)));
             styleBuilder.Append(TransformPropertyToStyle("transform", currentCell.Style.Alignment.TextRotation));
-            return $"<td style=\"{styleBuilder.ToString().TrimEnd()}\" eth-cell=\"{currentCell.Address}\" colspan=\"{range.ColumnCount()}\" rowspan=\"{range.RowCount()}\">";
+
+            var colspan = range.ColumnCount();
+            var rowspan = range.RowCount();
+            return $"<td style=\"{styleBuilder.ToString().TrimEnd()}\" eth-cell=\"{currentCell.Address}\" colspan=\"{colspan}\" rowspan=\"{rowspan}\">";
         }
 
         /// <summary>
@@ -270,32 +273,32 @@ td.diagonal-cross:after {
             switch (borderStyle)
             {
                 case XLBorderStyleValues.DashDot:
-                    width = "1pt"; //width = "1px";
+                    width = "1px";
                     style = "dashed";
                     break;
 
                 case XLBorderStyleValues.DashDotDot:
-                    width = "1pt"; //width = "1px";
+                    width = "1px";
                     style = "dashed";
                     break;
 
                 case XLBorderStyleValues.Dashed:
-                    width = "1pt"; //width = "1px";
+                    width = "1pt";
                     style = "dashed";
                     break;
 
                 case XLBorderStyleValues.Dotted:
-                    width = "1pt"; //width = "1px";
+                    width = "1pt";
                     style = "dotted";
                     break;
 
                 case XLBorderStyleValues.Double:
-                    width = "medium"; //width = "1px";
+                    width = "medium";
                     style = "double";
                     break;
 
                 case XLBorderStyleValues.Hair:
-                    width = "1pt"; //width = "1px";
+                    width = "1px";
                     style = "dotted";
                     break;
 
@@ -320,12 +323,12 @@ td.diagonal-cross:after {
                     break;
 
                 case XLBorderStyleValues.SlantDashDot:
-                    width = "1pt"; //width = "1px";
+                    width = "1px";
                     style = "dashed";
                     break;
 
                 case XLBorderStyleValues.Thick:
-                    width = "2.5pt"; //width = "thick";
+                    width = "thick";
                     style = "solid";
                     break;
 
@@ -335,7 +338,7 @@ td.diagonal-cross:after {
                     break;
 
                 case XLBorderStyleValues.None:
-                    //width = "0pt";
+                    //width = "0px";
                     //style = "solid";
                     return string.Empty;
 
@@ -543,6 +546,7 @@ td.diagonal-cross:after {
         private static string PropertyToStyle(string cssproperty, string value)
         {
             if (string.IsNullOrEmpty(cssproperty)) return string.Empty;
+            if (string.IsNullOrEmpty(value)) return string.Empty;
 
             return $"{cssproperty}:{value}; ";
         }
