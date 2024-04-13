@@ -213,7 +213,7 @@ td.diagonal-cross:after {
             styleBuilder.Append(FontPropertyToStyle("font-family", currentCell.Style.Font.FontName, "serif"));
             styleBuilder.Append(PropertyToStyle("font-style", currentCell.Style.Font.Italic ? "italic" : "normal"));
             styleBuilder.Append(PropertyToStyle("font-weight", currentCell.Style.Font.Bold ? "bold" : "normal"));
-            styleBuilder.Append(PropertyToStyle("white-space", currentCell.Style.Alignment.WrapText ? "" : "no-wrap"));
+            styleBuilder.Append(PropertyToStyle("white-space", currentCell.Style.Alignment.WrapText ? "pre-wrap" : "no-wrap"));
             styleBuilder.Append(SizePropertyToStyle("height", GetRowHeight(currentCell)));
             styleBuilder.Append(SizePropertyToStyle("width", GetColumnWidth(currentCell)));
             styleBuilder.Append(TransformPropertyToStyle("transform", currentCell.Style.Alignment.TextRotation));
@@ -237,7 +237,7 @@ td.diagonal-cross:after {
             StringBuilder styleBuilder = new StringBuilder();
             var lastCell = range.LastCell();
             styleBuilder.Append(BorderPropertyToStyle("border-top", currentCell.Style.Border.TopBorder, currentCell.Style.Border.TopBorderColor, theme));
-            styleBuilder.Append(BorderPropertyToStyle("border-bottom", currentCell.Style.Border.BottomBorder, currentCell.Style.Border.BottomBorderColor, theme));
+            styleBuilder.Append(BorderPropertyToStyle("border-bottom", lastCell.Style.Border.BottomBorder, lastCell.Style.Border.BottomBorderColor, theme));
             styleBuilder.Append(BorderPropertyToStyle("border-left", currentCell.Style.Border.LeftBorder, currentCell.Style.Border.LeftBorderColor, theme));
             styleBuilder.Append(BorderPropertyToStyle("border-right", lastCell.Style.Border.RightBorder, lastCell.Style.Border.RightBorderColor, theme));
             styleBuilder.Append(ColorPropertyToStyle("background-color", currentCell.Style.Fill.BackgroundColor, theme));
@@ -248,13 +248,13 @@ td.diagonal-cross:after {
             styleBuilder.Append(FontPropertyToStyle("font-family", currentCell.Style.Font.FontName, "serif"));
             styleBuilder.Append(PropertyToStyle("font-style", currentCell.Style.Font.Italic ? "italic" : "normal"));
             styleBuilder.Append(PropertyToStyle("font-weight", currentCell.Style.Font.Bold ? "bold" : "normal"));
-            styleBuilder.Append(PropertyToStyle("white-space", currentCell.Style.Alignment.WrapText ? "" : "no-wrap"));
+            styleBuilder.Append(PropertyToStyle("white-space", currentCell.Style.Alignment.WrapText ? "pre-wrap" : "no-wrap"));
             styleBuilder.Append(SizePropertyToStyle("height", GetRowHeight(range)));
             styleBuilder.Append(SizePropertyToStyle("width", GetColumnWidth(range)));
             styleBuilder.Append(TransformPropertyToStyle("transform", currentCell.Style.Alignment.TextRotation));
 
             var colspan = range.ColumnCount();
-            var rowspan = range.RowCount();
+            var rowspan = 1; // range.RowCount();
             return $"<td style=\"{styleBuilder.ToString().TrimEnd()}\" eth-cell=\"{currentCell.Address}\" colspan=\"{colspan}\" rowspan=\"{rowspan}\">";
         }
 
